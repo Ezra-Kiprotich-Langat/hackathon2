@@ -2,7 +2,7 @@
 
 ## **1. Project Overview**
 
-**SkillScore** is a cross-platform mobile app (React Native + Expo) with a FastAPI backend. It allows users to:
+**SkillScore** is a cross-platform mobile app (React Native + Expo) that enables users to:
 
 * Upload files (PDF, DOCX, TXT, or Images).
 * Extract text from files.
@@ -10,22 +10,23 @@
 * Answer questions directly in the app.
 * Receive instant **scores and feedback**.
 
-Authentication and file storage are handled by **Supabase**.
+**Supabase** powers authentication, database, and storage. **FastAPI** is used as a helper microservice for text extraction, AI orchestration, and communication with Gemini.
 
 ---
 
 ## **2. Technical Stack & Platforms**
 
 * **Frontend:** React Native (Expo), NativeWind for styling, Expo Router for navigation.
-* **Backend:** FastAPI (Python).
-* **Database:** Supabase (Postgres).
+* **Backend (primary):** Supabase (Postgres, Auth, Storage).
+* **Helper Service:** FastAPI (Python, handles file parsing, Gemini API calls).
 * **Authentication:** Supabase Auth (JWT).
-* **Storage:** Supabase Storage (files), DB for metadata.
+* **Storage:** Supabase Storage for file uploads.
 * **AI Services:** Google Gemini API.
 * **Deployment:**
 
   * Frontend → Expo EAS build & OTA updates.
-  * Backend → FastAPI with Uvicorn (deployable to Railway, Render, or GCP).
+  * Supabase → managed cloud instance.
+  * FastAPI → deployable to Railway, Render, or GCP.
 
 ---
 
@@ -34,48 +35,48 @@ Authentication and file storage are handled by **Supabase**.
 ### **3.1 Functional Requirements**
 
 * Users can sign up/login via Supabase Auth.
-* Users can upload supported files (PDF, DOCX, TXT, Image).
-* Extracted text is processed by backend.
+* Users can upload supported files (PDF, DOCX, TXT, Image) → stored in Supabase Storage.
+* FastAPI extracts text from uploaded files and saves it back to Supabase DB.
 * Gemini API generates 3 MCQs + 2 short-answer questions.
-* Users can answer questions in the app.
-* Backend evaluates answers via Gemini and returns a **score + feedback**.
-* Users see results immediately.
+* Users can fetch questions and answer them.
+* FastAPI evaluates answers via Gemini and stores results in Supabase DB.
+* Users see scores and feedback immediately.
 
 ### **3.2 Non-Functional Requirements**
 
 * Must work on both iOS and Android.
-* Backend should respond within **<3 seconds** for most requests.
-* Gemini calls should be **asynchronous** to avoid UI freezing.
-* The app should remain responsive even when processing files.
+* Supabase should be the single source of truth for all data.
+* FastAPI endpoints should respond in **<3 seconds** for most requests.
+* Gemini calls should be **async** to keep the app responsive.
 
 ### **3.3 UI/UX Requirements**
 
 * Use **NativeWind** for consistent styling.
-* Minimalist design: focus on usability, clarity, and speed.
-* Components must be mobile-friendly (buttons, forms, lists).
-* Dark mode support (stretch goal).
+* Minimalist design: usability > decoration.
+* Buttons and inputs must be mobile-friendly.
+* Dark mode support (optional stretch).
 * Navigation handled via **Expo Router**.
 
 ### **3.4 Performance Requirements**
 
-* Handle file uploads up to **10 MB**.
-* Extract text within **5 seconds** for average-size files.
-* API latency <1 second (excluding AI processing).
-* Cache AI results (questions, feedback) to reduce duplicate Gemini requests.
+* File uploads limited to **10 MB**.
+* Text extraction within **5 seconds** for average-size files.
+* API latency <1 second (excluding Gemini).
+* Cache Gemini results (questions/feedback) to avoid duplicate calls.
 
 ### **3.5 Security Requirements**
 
-* JWT tokens from Supabase must be validated for every API call.
-* File uploads restricted to supported formats (pdf, docx, txt, jpg, png).
+* Supabase JWT must be validated on every FastAPI call.
+* Restrict uploads to safe formats (pdf, docx, txt, jpg, png).
 * Input sanitization for text extraction & AI prompts.
-* Use HTTPS everywhere (frontend ↔ backend ↔ Supabase).
-* No sensitive data (passwords, keys) stored in client.
+* Enforce HTTPS everywhere.
+* Never expose private keys in client.
 
 ---
 
 ## **4. Design Guidelines**
 
-* **Styling Framework:** NativeWind (Tailwind-like utility classes).
+* **Styling Framework:** NativeWind (Tailwind-like).
 * **Color Palette:**
 
   * Primary: Blue (trust, learning).
@@ -83,12 +84,12 @@ Authentication and file storage are handled by **Supabase**.
   * Neutral grays for backgrounds.
 * **Typography:**
 
-  * Headings → bold, larger size.
+  * Headings → bold, larger.
   * Body text → base, readable.
 * **UI Components:**
 
   * Buttons → rounded, shadow, consistent sizing.
-  * Cards → used for questions & answers.
+  * Cards → for questions & answers.
 * **Navigation:** Expo Router with `/auth`, `/upload`, `/questions`, `/results` routes.
 
 ---
@@ -101,21 +102,20 @@ Authentication and file storage are handled by **Supabase**.
 
 ```
 /app  
-  /auth (login/register screens)  
+  /auth (Supabase login/register)  
   /upload (file upload screen)  
   /questions (quiz flow)  
   /results (score display)  
 /components (shared UI components)  
-/lib (supabase, api clients)  
+/lib (supabase client, API clients)  
 /styles (NativeWind config)  
 ```
 
-**Backend (FastAPI):**
+**Helper Service (FastAPI):**
 
 ```
 /app  
   /routes (upload, questions, answers)  
-  /models (SQLAlchemy models)  
   /services (Gemini, Supabase integration)  
   /core (config, utils)  
 ```
@@ -123,20 +123,12 @@ Authentication and file storage are handled by **Supabase**.
 ### **5.2 Testing**
 
 * Frontend: Jest + React Testing Library.
-* Backend: Pytest for API routes.
+* Backend (FastAPI): Pytest for API routes.
 * Use mock Gemini responses for test cases.
 
 ### **5.3 Deployment**
 
-* **Frontend:** Expo EAS build for iOS & Android. OTA updates enabled.
-* **Backend:** FastAPI deployed to Railway/Render.
-* Environment variables managed via Supabase & Expo secrets.
-
----
-
-✅ With these additions, your `PROJECT_RULES.md` now covers:
-
-* Functional requirements
-* Non-functional, UI/UX, performance, and security requirements
-* Design guidelines (colors, typography, UI rules)
-* Development guidelines (file structure, testing, deployment)
+* **Frontend:** Expo EAS build (iOS & Android). OTA updates enabled.
+* **Backend (Supabase):** managed cloud environment.
+* **Helper Service (FastAPI):** Railway/Render/GCP.
+* Secrets handled via Supabase environment variables + Expo secrets.
